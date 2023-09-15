@@ -23,8 +23,6 @@
 #include "app_common.h"
 #include "ble.h"
 #include "app_ble.h"
-/* FREERTOS_MARK */
-#include "app_freertos.h"
 #include "host_stack_if.h"
 #include "ll_sys_if.h"
 #include "otp.h"
@@ -40,7 +38,7 @@
 #include "dis_app.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "hrs_app.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -130,8 +128,7 @@ typedef struct
   BleGlobalContext_t BleApplicationContext_legacy;
   APP_BLE_ConnStatus_t Device_Connection_Status;
   /* USER CODE BEGIN PTD_1*/
-  UTIL_TIMER_Object_t           TimerAdvLowPower_Id;
-  uint8_t connIntervalFlag;
+
   /* USER CODE END PTD_1 */
 }BleApplicationContext_t;
 
@@ -221,55 +218,14 @@ static void gap_cmd_resp_wait(void);
 static void gap_cmd_resp_release(void);
 static void BLE_ResumeFlowProcessCallback(void);
 static void BLE_NvmCallback (SNVMA_Callback_Status_t);
-
-/* FREERTOS_MARK */
-static void BleStack_Process_BG_Entry(void* thread_input);
-static void Ble_UserEvtRx_Entry(void* thread_input);
-static void APP_BLE_AdvLowPower_Entry(void* thread_input);
-static void HRS_APP_Measurements_Entry(void* thread_input);
+static uint8_t  HOST_BLE_Init(void);
 /* USER CODE BEGIN PFP */
-static void APP_BLE_AdvLowPower_timCB(void *arg);
-static void APP_BLE_AdvLowPower(void);
+
 /* USER CODE END PFP */
 
 /* External variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN EV */
-
-/*************************************************************
- *
- * LOCAL FUNCTIONS
- *
- *************************************************************/
-uint8_t HOST_BLE_Init(void)
-{
-  tBleStatus return_status = BLE_STATUS_FAILED;
-
-  pInitParams.numAttrRecord           = CFG_BLE_NUM_GATT_ATTRIBUTES;
-  pInitParams.numAttrServ             = CFG_BLE_NUM_GATT_SERVICES;
-  pInitParams.attrValueArrSize        = CFG_BLE_ATT_VALUE_ARRAY_SIZE;
-  pInitParams.prWriteListSize         = CFG_BLE_ATTR_PREPARE_WRITE_VALUE_SIZE;
-  pInitParams.attMtu                  = CFG_BLE_ATT_MTU_MAX;
-  pInitParams.max_coc_nbr             = CFG_BLE_COC_NBR_MAX;
-  pInitParams.max_coc_mps             = CFG_BLE_COC_MPS_MAX;
-  pInitParams.max_coc_initiator_nbr   = CFG_BLE_COC_INITIATOR_NBR_MAX;
-  pInitParams.numOfLinks              = CFG_BLE_NUM_LINK;
-  pInitParams.mblockCount             = CFG_BLE_MBLOCK_COUNT;
-  pInitParams.bleStartRamAddress      = (uint8_t*)buffer;
-  pInitParams.total_buffer_size       = BLE_DYN_ALLOC_SIZE;
-  pInitParams.bleStartRamAddress_GATT = (uint8_t*)gatt_buffer;
-  pInitParams.total_buffer_size_GATT  = BLE_GATT_BUF_SIZE;
-  pInitParams.options                 = CFG_BLE_OPTIONS;
-  pInitParams.debug                   = 0U;
-/* USER CODE BEGIN HOST_BLE_Init_Params */
-
-/* USER CODE END HOST_BLE_Init_Params */
-  return_status = BleStack_Init(&pInitParams);
-/* USER CODE BEGIN HOST_BLE_Init */
-
-/* USER CODE END HOST_BLE_Init */
-  return ((uint8_t)return_status);
-}
 
 /* USER CODE END EV */
 
@@ -277,17 +233,10 @@ uint8_t HOST_BLE_Init(void)
 void APP_BLE_Init(void)
 {
   /* USER CODE BEGIN APP_BLE_Init_1 */
-  tBleStatus ret = BLE_STATUS_INVALID_PARAMS;
+
   /* USER CODE END APP_BLE_Init_1 */
 
   LST_init_head(&BleAsynchEventQueue);
-
-  /* FREERTOS_MARK */
-  BLE_HOST_Thread_SemHandle = osSemaphoreNew(1, 0, &BLE_HOST_Thread_Sem_attributes);
-  BLE_HOST_ThreadHandle = osThreadNew(BleStack_Process_BG_Entry, NULL, &BLE_HOST_Thread_attributes);
-
-  HCI_ASYNCH_EVT_Thread_SemHandle = osSemaphoreNew(1, 0, &HCI_ASYNCH_EVT_Thread_Sem_attributes);
-  HCI_ASYNCH_EVT_ThreadHandle = osThreadNew(Ble_UserEvtRx_Entry, NULL, &HCI_ASYNCH_EVT_Thread_attributes);
 
   /* NVM emulation in RAM initialization */
   NVM_Init(buffer_nvm, 0, CFG_BLEPLAT_NVM_MAX_SIZE);
@@ -338,34 +287,7 @@ void APP_BLE_Init(void)
     APP_DBG_MSG("\n");
 
     /* USER CODE BEGIN APP_BLE_Init_3 */
-    /* Start to Advertise to accept a connection */
-    ret = aci_hal_set_radio_activity_mask(0x0006);
-    if (ret != BLE_STATUS_SUCCESS)
-    {
-      APP_DBG_MSG("  Fail   : aci_hal_set_radio_activity_mask command, result: 0x%2X\n", ret);
-    }
-    else
-    {
-      APP_DBG_MSG("  Success: aci_hal_set_radio_activity_mask command\n\r");
-    }
-    APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_START_FAST);
 
-    /* FREERTOS_MARK */
-    MEAS_REQ_Thread_SemHandle = osSemaphoreNew(1, 0, &MEAS_REQ_Thread_Sem_attributes);
-    MEAS_REQ_ThreadHandle = osThreadNew(HRS_APP_Measurements_Entry, NULL, &MEAS_REQ_Thread_attributes);
-
-    /* FREERTOS_MARK */
-    ADV_LP_REQ_Thread_SemHandle = osSemaphoreNew(1, 0, &ADV_LP_REQ_Thread_Sem_attributes);
-    ADV_LP_REQ_ThreadHandle = osThreadNew(APP_BLE_AdvLowPower_Entry, NULL, &ADV_LP_REQ_Thread_attributes);
-
-    /* Create timer to enter Low Power Advertising  */
-    UTIL_TIMER_Create(&(bleAppContext.TimerAdvLowPower_Id),
-                      INITIAL_ADV_TIMEOUT,
-                      UTIL_TIMER_ONESHOT,
-                      &APP_BLE_AdvLowPower_timCB, 0);
-    UTIL_TIMER_Start(&(bleAppContext.TimerAdvLowPower_Id));
-    HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
     /* USER CODE END APP_BLE_Init_3 */
 
   }
@@ -422,8 +344,7 @@ SVCCTL_UserEvtFlowStatus_t SVCCTL_App_Notification(void *p_Pckt)
       HRS_APP_EvtRx(&HRSHandleNotification);
       DIS_APP_EvtRx(&DISHandleNotification);
       /* USER CODE BEGIN EVT_DISCONN_COMPLETE */
-      APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_START_FAST);
-      UTIL_TIMER_StartWithPeriod(&bleAppContext.TimerAdvLowPower_Id, INITIAL_ADV_TIMEOUT);
+
       /* USER CODE END EVT_DISCONN_COMPLETE */
       break; /* HCI_DISCONNECTION_COMPLETE_EVT_CODE */
     }
@@ -503,8 +424,7 @@ SVCCTL_UserEvtFlowStatus_t SVCCTL_App_Notification(void *p_Pckt)
           DIS_APP_EvtRx(&DISHandleNotification);
 
           /* USER CODE BEGIN HCI_EVT_LE_ENHANCED_CONN_COMPLETE */
-          /* The connection is done, there is no need anymore to schedule the LP ADV */
-          UTIL_TIMER_Stop(&(bleAppContext.TimerAdvLowPower_Id));
+
           /* USER CODE END HCI_EVT_LE_ENHANCED_CONN_COMPLETE */
           break; /* HCI_LE_ENHANCED_CONNECTION_COMPLETE_SUBEVT_CODE */
         }
@@ -701,7 +621,6 @@ SVCCTL_UserEvtFlowStatus_t SVCCTL_App_Notification(void *p_Pckt)
       break; /* HCI_VENDOR_SPECIFIC_DEBUG_EVT_CODE */
       }
     }
-    break;
       /* USER CODE BEGIN EVENT_PCKT */
 
       /* USER CODE END EVENT_PCKT */
@@ -730,11 +649,7 @@ void APP_BLE_Procedure_Gap_General(ProcGapGeneralId_t ProcGapGeneralId)
   {
     case PROC_GAP_GEN_PHY_TOGGLE:
     {
-        /* FREERTOS_MARK */
-      osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
       status = hci_le_read_phy(bleAppContext.BleApplicationContext_legacy.connectionHandle, &phy_tx, &phy_rx);
-      /* FREERTOS_MARK */
-      osMutexRelease(LINK_LAYER_Thread_MutexHandle);
       if (status != BLE_STATUS_SUCCESS)
       {
         APP_DBG_MSG("hci_le_read_phy failure: reason=0x%02X\n",status);
@@ -850,18 +765,7 @@ void APP_BLE_Procedure_Gap_Peripheral(ProcGapPeripheralId_t ProcGapPeripheralId)
       paramD = 0x01F4;
 
       /* USER CODE BEGIN CONN_PARAM_UPDATE */
-      if (bleAppContext.connIntervalFlag != 0)
-      {
-        bleAppContext.connIntervalFlag = 0;
-        paramA = CONN_INT_MS(50);
-        paramB = CONN_INT_MS(50);
-      }
-      else
-      {
-        bleAppContext.connIntervalFlag = 1;
-        paramA = CONN_INT_MS(1000);
-        paramB = CONN_INT_MS(1000);
-      }
+
       /* USER CODE END CONN_PARAM_UPDATE */
       break;
     }/* PROC_GAP_PERIPH_CONN_PARAM_UPDATE */
@@ -973,6 +877,41 @@ void APP_BLE_Procedure_Gap_Peripheral(ProcGapPeripheralId_t ProcGapPeripheralId)
 
 /* USER CODE END FD*/
 
+/*************************************************************
+ *
+ * LOCAL FUNCTIONS
+ *
+ *************************************************************/
+uint8_t HOST_BLE_Init(void)
+{
+  tBleStatus return_status = BLE_STATUS_FAILED;
+
+  pInitParams.numAttrRecord           = CFG_BLE_NUM_GATT_ATTRIBUTES;
+  pInitParams.numAttrServ             = CFG_BLE_NUM_GATT_SERVICES;
+  pInitParams.attrValueArrSize        = CFG_BLE_ATT_VALUE_ARRAY_SIZE;
+  pInitParams.prWriteListSize         = CFG_BLE_ATTR_PREPARE_WRITE_VALUE_SIZE;
+  pInitParams.attMtu                  = CFG_BLE_ATT_MTU_MAX;
+  pInitParams.max_coc_nbr             = CFG_BLE_COC_NBR_MAX;
+  pInitParams.max_coc_mps             = CFG_BLE_COC_MPS_MAX;
+  pInitParams.max_coc_initiator_nbr   = CFG_BLE_COC_INITIATOR_NBR_MAX;
+  pInitParams.numOfLinks              = CFG_BLE_NUM_LINK;
+  pInitParams.mblockCount             = CFG_BLE_MBLOCK_COUNT;
+  pInitParams.bleStartRamAddress      = (uint8_t*)buffer;
+  pInitParams.total_buffer_size       = BLE_DYN_ALLOC_SIZE;
+  pInitParams.bleStartRamAddress_GATT = (uint8_t*)gatt_buffer;
+  pInitParams.total_buffer_size_GATT  = BLE_GATT_BUF_SIZE;
+  pInitParams.options                 = CFG_BLE_OPTIONS;
+  pInitParams.debug                   = 0U;
+/* USER CODE BEGIN HOST_BLE_Init_Params */
+
+/* USER CODE END HOST_BLE_Init_Params */
+  return_status = BleStack_Init(&pInitParams);
+/* USER CODE BEGIN HOST_BLE_Init */
+
+/* USER CODE END HOST_BLE_Init */
+  return ((uint8_t)return_status);
+}
+
 static void Ble_Hci_Gap_Gatt_Init(void)
 {
   uint8_t role;
@@ -983,8 +922,7 @@ static void Ble_Hci_Gap_Gatt_Init(void)
   tBleStatus ret = BLE_STATUS_INVALID_PARAMS;
 
   /* USER CODE BEGIN Ble_Hci_Gap_Gatt_Init*/
-  /*HCI Reset to synchronise BLE Stack*/
-  hci_reset();
+
   /* USER CODE END Ble_Hci_Gap_Gatt_Init*/
 
   APP_DBG_MSG("==>> Start Ble_Hci_Gap_Gatt_Init function\n");
@@ -1199,13 +1137,9 @@ static void Ble_UserEvtRx( void)
 
   if ((LST_is_empty(&BleAsynchEventQueue) == FALSE) && (svctl_return_status != SVCCTL_UserEvtFlowDisable) )
   {
-	    /* FREERTOS_MARK */
-	    osSemaphoreRelease(HCI_ASYNCH_EVT_Thread_SemHandle);
   }
 
   /* set the BG_BleStack_Process task for scheduling */
-  /* FREERTOS_MARK */
-  osSemaphoreRelease(BLE_HOST_Thread_SemHandle);
 
 }
 
@@ -1259,18 +1193,17 @@ const uint8_t* BleGetBdAddress(void)
 
 static void BleStack_Process_BG(void)
 {
-  /* FREERTOS_MARK */
-  osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-  uint8_t Running = 0x0;
-  Running = BleStack_Process( );
-  /* FREERTOS_MARK */
-  osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  if (Running == 0x0)
-  {
-    BleStackCB_Process( );
-  }
 }
 
+static void gap_cmd_resp_release(void)
+{
+  return;
+}
+
+static void gap_cmd_resp_wait(void)
+{
+  return;
+}
 
 /**
   * @brief  Notify the LL to resume the flow process
@@ -1285,19 +1218,6 @@ static void BLE_ResumeFlowProcessCallback(void)
   notify_options.combined_value = 0x0F;
 
   ll_intf_chng_evnt_hndlr_state( notify_options );
-}
-static void gap_cmd_resp_release(void)
-{
-  /* FREERTOS_MARK */
-  osSemaphoreRelease(IDLEEVT_PROC_GAP_COMPLETE_SemHandle);
-  return;
-}
-
-static void gap_cmd_resp_wait(void)
-{
-  /* FREERTOS_MARK */
-  osSemaphoreAcquire(IDLEEVT_PROC_GAP_COMPLETE_SemHandle, osWaitForever);
-  return;
 }
 
 static void BLE_NvmCallback (SNVMA_Callback_Status_t CbkStatus)
@@ -1319,27 +1239,6 @@ static void BLE_NvmCallback (SNVMA_Callback_Status_t CbkStatus)
  * WRAP FUNCTIONS
  *
  *************************************************************/
-
-static void APP_BLE_AdvLowPower_timCB(void *arg)
-{
-  /**
-   * The code shall be executed in the background as aci command may be sent
-   * The background is the only place where the application can make sure a new aci command
-   * is not sent if there is a pending one
-   */
-  /* FREERTOS_MARK */
-  osSemaphoreRelease(ADV_LP_REQ_Thread_SemHandle);
-
-  return;
-}
-
-
-static void APP_BLE_AdvLowPower(void)
-{
-  UTIL_TIMER_Stop(&(bleAppContext.TimerAdvLowPower_Id));
-  APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_STOP);
-  APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_START_LP);
-}
 
 tBleStatus BLECB_Indication( const uint8_t* data,
                           uint16_t length,
@@ -1371,8 +1270,6 @@ tBleStatus BLECB_Indication( const uint8_t* data,
       memcpy( (void*)&phcievt->evtserial.evt.payload, &data[3], data[2]);
       LST_insert_tail(&BleAsynchEventQueue, (tListNode *)phcievt);
       status = BLE_STATUS_SUCCESS;
-      /* FREERTOS_MARK */
-      osSemaphoreRelease(HCI_ASYNCH_EVT_Thread_SemHandle);
     }
   }
   else if (data[0] == HCI_ACLDATA_PKT_TYPE)
@@ -1380,64 +1277,6 @@ tBleStatus BLECB_Indication( const uint8_t* data,
     status = BLE_STATUS_SUCCESS;
   }
   return status;
-}
-
-/* FREERTOS_MARK */
-void BleStack_Process_BG_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(BLE_HOST_Thread_SemHandle, osWaitForever);
-    BleStack_Process_BG();
-  }
-}
-
-void Ble_UserEvtRx_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(HCI_ASYNCH_EVT_Thread_SemHandle, osWaitForever);
-    /* FREERTOS_MARK */
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    Ble_UserEvtRx();
-    /* FREERTOS_MARK */
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
-}
-
-void APP_BLE_AdvLowPower_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(ADV_LP_REQ_Thread_SemHandle, osWaitForever);
-    /* FREERTOS_MARK */
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-    APP_BLE_AdvLowPower();
-    /* FREERTOS_MARK */
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
-}
-
-void HRS_APP_Measurements_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(MEAS_REQ_Thread_SemHandle, osWaitForever);
-    HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
-    /* FREERTOS_MARK */
-    HRS_APP_Measurements();
-    HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_SET);
-  }
 }
 
 void NVMCB_Store( const uint32_t* ptr, uint32_t size )

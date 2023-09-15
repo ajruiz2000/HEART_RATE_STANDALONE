@@ -339,11 +339,6 @@ typedef enum
  */
 #define SYS_MAX_MSG                 (200U)
 
-/**
- * Timeout for advertising
- */
-#define INITIAL_ADV_TIMEOUT         (60*1000) /**< 60s */
-
 /* USER CODE BEGIN Traces */
 
 /* USER CODE END Traces */

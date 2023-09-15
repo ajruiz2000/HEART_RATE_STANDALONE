@@ -24,7 +24,6 @@
 #include "ll_sys.h"
 #include "app_ble.h"
 
-#include "app_freertos.h"
 /* External function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN EFP */
 
@@ -57,8 +56,7 @@ void HostStack_Process(void)
 void BleStackCB_Process(void)
 {
   /* USER CODE BEGIN BleStackCB_Process 0 */
-	  /* FREERTOS_MARK */
-	  osSemaphoreRelease(BLE_HOST_Thread_SemHandle);
+
   /* USER CODE END BleStackCB_Process 0 */
   /* BLE Host stack processing through background task */
   /* USER CODE BEGIN BleStackCB_Process 1 */

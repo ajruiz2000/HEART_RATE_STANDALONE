@@ -33,7 +33,7 @@ extern "C" {
 
 /* Exported defines ----------------------------------------------------------*/
 /* USER CODE BEGIN ED */
-#define HRS_MAX_NBR_RR_INTERVAL_VALUES                     (9)
+
 /* USER CODE END ED */
 
 /* Exported types ------------------------------------------------------------*/
@@ -55,7 +55,7 @@ typedef enum
   HRS_BSL_READ_EVT,
   HRS_HRCP_WRITE_EVT,
   /* USER CODE BEGIN Service1_OpcodeEvt_t */
-  HRS_RESET_ENERGY_EXPENDED_EVT,
+
   /* USER CODE END Service1_OpcodeEvt_t */
   HRS_BOOT_REQUEST_EVT
 } HRS_OpcodeEvt_t;
@@ -83,36 +83,12 @@ typedef struct
 } HRS_NotificationEvt_t;
 
 /* USER CODE BEGIN ET */
-typedef struct{
-    uint16_t    MeasurementValue;
-    uint16_t    EnergyExpended;
-    uint16_t    aRRIntervalValues[HRS_MAX_NBR_RR_INTERVAL_VALUES];
-    uint8_t     NbreOfValidRRIntervalValues;
-    uint8_t     Flags;
-}HRS_MeasVal_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-typedef enum
-{
-  HRS_HRM_VALUE_FORMAT_UINT16 = 1,
-  HRS_HRM_SENSOR_CONTACTS_PRESENT = 2,
-  HRS_HRM_SENSOR_CONTACTS_SUPPORTED = 4,
-  HRS_HRM_ENERGY_EXPENDED_PRESENT = 8,
-  HRS_HRM_RR_INTERVAL_PRESENT = 0x10
-}HRS_HrmFlags_t;
 
-typedef enum
-{
-  HRS_BODY_SENSOR_LOCATION_OTHER = 0,
-  HRS_BODY_SENSOR_LOCATION_CHEST = 1,
-  HRS_BODY_SENSOR_LOCATION_WRIST = 2,
-  HRS_BODY_SENSOR_LOCATION_FINGER = 3,
-  HRS_BODY_SENSOR_LOCATION_HAND = 4,
-  HRS_BODY_SENSOR_LOCATION_EAR_LOBE = 5,
-  HRS_BODY_SENSOR_LOCATION_FOOT = 6
-}HRS_BodySensorLocation_t;
 /* USER CODE END EC */
 
 /* External variables --------------------------------------------------------*/

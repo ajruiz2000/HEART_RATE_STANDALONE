@@ -76,8 +76,7 @@ typedef struct
 void HRS_APP_Init(void);
 void HRS_APP_EvtRx(HRS_APP_ConnHandleNotEvt_t *p_Notification);
 /* USER CODE BEGIN EF */
-void HRS_APP_Measurements_timCB(void *arg);
-void HRS_APP_Measurements(void);
+
 /* USER CODE END EF */
 
 #ifdef __cplusplus

@@ -24,9 +24,6 @@
 #include "ll_sys.h"
 #include "adc_ctrl.h"
 #include "linklayer_plat.h"
-
-/* FREERTOS_MARK */
-#include "app_freertos.h"
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN PD */
@@ -54,12 +51,7 @@
 void ll_sys_bg_temperature_measurement(void);
 static void ll_sys_bg_temperature_measurement_init(void);
 static void request_temperature_measurement(void);
-/* FREERTOS_MARK */
-static void request_temperature_measurement_Entry(void* thread_input);
 #endif /* USE_TEMPERATURE_BASED_RADIO_CALIBRATION */
-
-/* FREERTOS_MARK */
-static void ll_sys_bg_process_Entry(void* thread_input);
 
 /**
   * @brief  Link Layer background process initialization
@@ -69,9 +61,6 @@ static void ll_sys_bg_process_Entry(void* thread_input);
 void ll_sys_bg_process_init(void)
 {
   /* Tasks creation */
-	  LINK_LAYER_Thread_SemHandle = osSemaphoreNew(1, 0, &LINK_LAYER_Thread_Sem_attributes);
-	  LINK_LAYER_Thread_MutexHandle = osMutexNew(&LINK_LAYER_Thread_Mutex_attributes);
-	  LINK_LAYER_ThreadHandle = osThreadNew(ll_sys_bg_process_Entry, NULL, &LINK_LAYER_Thread_attributes);
 }
 
 /**
@@ -81,8 +70,6 @@ void ll_sys_bg_process_init(void)
   */
 void ll_sys_schedule_bg_process(void)
 {
-	  /* FREERTOS_MARK */
-	  osSemaphoreRelease(LINK_LAYER_Thread_SemHandle);
 }
 
 /**
@@ -115,9 +102,6 @@ void ll_sys_config_params(void)
 void ll_sys_bg_temperature_measurement_init(void)
 {
   /* Tasks creation */
-	  /* FREERTOS_MARK */
-	  LINK_LAYER_TEMP_MEAS_Thread_SemHandle = osSemaphoreNew(1, 0, &LINK_LAYER_TEMP_MEAS_Thread_Sem_attributes);
-	  LINK_LAYER_TEMP_MEAS_ThreadHandle = osThreadNew(request_temperature_measurement_Entry, NULL, &LINK_LAYER_TEMP_MEAS_Thread_attributes);
 }
 
 /**
@@ -127,8 +111,6 @@ void ll_sys_bg_temperature_measurement_init(void)
   */
 void ll_sys_bg_temperature_measurement(void)
 {
-	  /* FREERTOS_MARK */
-	  osSemaphoreRelease(LINK_LAYER_TEMP_MEAS_Thread_SemHandle);
 }
 
 /**
@@ -161,35 +143,7 @@ void request_temperature_measurement(void)
   UTILS_EXIT_LIMITED_CRITICAL_SECTION();
 }
 
-/* FREERTOS_MARK */
-static void request_temperature_measurement_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(LINK_LAYER_TEMP_MEAS_Thread_SemHandle, osWaitForever);
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    request_temperature_measurement();
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
-}
-
 #endif /* USE_TEMPERATURE_BASED_RADIO_CALIBRATION */
-
-/* FREERTOS_MARK */
-static void ll_sys_bg_process_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(LINK_LAYER_Thread_SemHandle, osWaitForever);
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    ll_sys_bg_process();
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
-}
 
 /**
   * @brief  Enable RTOS context switch.

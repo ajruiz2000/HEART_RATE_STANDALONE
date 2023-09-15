@@ -113,9 +113,7 @@ int main(void)
   MX_RNG_Init();
   MX_ICACHE_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -133,7 +131,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    //MX_APPE_Process();
+    MX_APPE_Process();
 
     /* USER CODE BEGIN 3 */
   }

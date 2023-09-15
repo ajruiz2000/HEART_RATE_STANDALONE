@@ -23,8 +23,6 @@
 #include "app_conf.h"
 #include "main.h"
 #include "app_entry.h"
-/* FREERTOS_MARK */
-#include "app_freertos.h"
 #if (CFG_LPM_SUPPORTED == 1)
 #include "stm32_lpm.h"
 #endif /* CFG_LPM_SUPPORTED */
@@ -136,11 +134,6 @@ static uint32_t * AMM_WrapperAllocate (const uint32_t BufferSize);
 static void AMM_WrapperFree (uint32_t * const p_BufferAddr);
 
 /* USER CODE BEGIN PFP */
-/* FREERTOS_MARK */
-static void BPKA_BG_Process_Entry(void* thread_input);
-static void HW_RNG_Process_Entry(void* thread_input);
-static void AMM_BackgroundProcess_Entry(void* thread_input);
-static void FM_BackgroundProcess_Entry(void* thread_input);
 /* USER CODE END PFP */
 
 /* External variables --------------------------------------------------------*/
@@ -169,29 +162,15 @@ uint32_t MX_APPE_Init(void *p_param)
   AMM_Init (&ammInitConfig);
 
   /* Register the AMM background task */
-  /* FREERTOS_MARK */
-  AMM_BCKGND_Thread_SemHandle = osSemaphoreNew(1, 0, &AMM_BCKGND_Thread_Sem_attributes);
-  AMM_BCKGND_ThreadHandle = osThreadNew(AMM_BackgroundProcess_Entry, NULL, &AMM_BCKGND_Thread_attributes);
 
   /* Initialize the Simple NVM Arbiter */
   SNVMA_Init ((uint32_t *)CFG_SNVMA_START_ADDRESS);
 
   /* Register the flash manager task */
-  FLASH_MANAGER_BCKGND_Thread_SemHandle = osSemaphoreNew(1, 0, &FLASH_MANAGER_BCKGND_Thread_Sem_attributes);
-  FLASH_MANAGER_BCKGND_ThreadHandle = osThreadNew(FM_BackgroundProcess_Entry, NULL, &FLASH_MANAGER_BCKGND_Thread_attributes);
 
 /* USER CODE BEGIN APPE_Init_1 */
-
 /* USER CODE END APPE_Init_1 */
-  /* FREERTOS_MARK */
-  BPKA_Thread_SemHandle = osSemaphoreNew(1, 0, &BPKA_Thread_Sem_attributes);
-  BPKA_ThreadHandle = osThreadNew(BPKA_BG_Process_Entry, NULL, &BPKA_Thread_attributes);
-
   BPKA_Reset( );
-
-  /* FREERTOS_MARK */
-  HW_RNG_Thread_SemHandle = osSemaphoreNew(1, 0, &HW_RNG_Thread_Sem_attributes);
-  HW_RNG_ThreadHandle = osThreadNew(HW_RNG_Process_Entry, NULL, &HW_RNG_Thread_attributes);
 
   RNG_Init();
 
@@ -201,9 +180,6 @@ uint32_t MX_APPE_Init(void *p_param)
   FD_SetStatus (FD_FLASHACCESS_RFTS_BYPASS, LL_FLASH_ENABLE);
   /* Enable flash system flag */
   FD_SetStatus (FD_FLASHACCESS_SYSTEM, LL_FLASH_ENABLE);
-
-  /* FREERTOS_MARK */
-  IDLEEVT_PROC_GAP_COMPLETE_SemHandle = osSemaphoreNew(1, 0, &IDLEEVT_PROC_GAP_COMPLETE_Sem_attributes);
 
   APP_BLE_Init();
   ll_sys_config_params();
@@ -319,6 +295,7 @@ static void AMM_WrapperFree (uint32_t * const p_BufferAddr)
 }
 
 /* USER CODE BEGIN FD_LOCAL_FUNCTIONS */
+/* USER CODE END FD_LOCAL_FUNCTIONS */
 
 /*************************************************************
  *
@@ -326,109 +303,12 @@ static void AMM_WrapperFree (uint32_t * const p_BufferAddr)
  *
  *************************************************************/
 
-/* FREERTOS_MARK */
-void FreeRTOSLowPowerUserEnter( void )
-{
-
-  LL_PWR_ClearFlag_STOP();
-  /* FREERTOS_MARK */
-  /*if(system_startup_done)
-  {
-    APP_SYS_BLE_EnterDeepSleep();
-  }
-  */
-  LL_RCC_ClearResetFlags();
-
-  /* Wait until System clock is not on HSI */
-  while (LL_RCC_GetSysClkSource() == LL_RCC_SYS_CLKSOURCE_STATUS_HSI);
-
-  HAL_SuspendTick();
-
-  UTIL_LPM_EnterLowPower();
-
-  return;
-}
-
-void FreeRTOSLowPowerUserExit( void )
-{
-  HAL_ResumeTick();
-  LL_AHB5_GRP1_EnableClock(LL_AHB5_GRP1_PERIPH_RADIO);
-  ll_sys_dp_slp_exit();
-
-  return;
-}
-
-void vApplicationIdleHook( void )
-{
-#if (CFG_LPM_SUPPORTED == 1)
-  FreeRTOSLowPowerUserEnter();
-  FreeRTOSLowPowerUserExit();
-#endif // CFG_LPM_SUPPORTED
-}
-
 void BPKACB_Process( void )
 {
-  /* FREERTOS_MARK */
-  osSemaphoreRelease(BPKA_Thread_SemHandle);
 }
 
 void HWCB_RNG_Process( void )
 {
-  /* FREERTOS_MARK */
-  osSemaphoreRelease(HW_RNG_Thread_SemHandle);
-}
-
-/* FREERTOS_MARK */
-void BPKA_BG_Process_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(BPKA_Thread_SemHandle , osWaitForever);
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    BPKA_BG_Process();
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
-}
-
-void HW_RNG_Process_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(HW_RNG_Thread_SemHandle , osWaitForever);
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    HW_RNG_Process();
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
-}
-
-void AMM_BackgroundProcess_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(AMM_BCKGND_Thread_SemHandle , osWaitForever);
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    AMM_BackgroundProcess();
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
-}
-
-void FM_BackgroundProcess_Entry(void* thread_input)
-{
-  (void)(thread_input);
-
-  while(1)
-  {
-    osSemaphoreAcquire(FLASH_MANAGER_BCKGND_Thread_SemHandle, osWaitForever);
-    osMutexAcquire(LINK_LAYER_Thread_MutexHandle, osWaitForever);
-    FM_BackgroundProcess();
-    osMutexRelease(LINK_LAYER_Thread_MutexHandle);
-  }
 }
 
 void AMM_RegisterBasicMemoryManager (AMM_BasicMemoryManagerFunctions_t * const p_BasicMemoryManagerFunctions)
@@ -442,32 +322,12 @@ void AMM_RegisterBasicMemoryManager (AMM_BasicMemoryManagerFunctions_t * const p
 void AMM_ProcessRequest (void)
 {
   /* Ask for AMM background task scheduling */
-  /* FREERTOS_MARK */
-  osSemaphoreRelease(AMM_BCKGND_Thread_SemHandle);
 }
 
 void FM_ProcessRequest (void)
 {
   /* Schedule the background process */
-  osSemaphoreRelease(FLASH_MANAGER_BCKGND_Thread_SemHandle);
 }
-
-/* USER CODE BEGIN FD_WRAP_FUNCTIONS */
-
-void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
-{
-  HAL_GPIO_EXTI_Rising_Callback(GPIO_Pin);
-}
-
-
-#if (CFG_DEBUG_APP_TRACE != 0)
-void RNG_KERNEL_CLK_OFF(void)
-{
-  /* Do not switch off HSI clock as it is used for traces */
-}
-#endif
-/* USER CODE END FD_LOCAL_FUNCTIONS */
-
 
 #if (CFG_DEBUG_APP_TRACE != 0)
 void RNG_KERNEL_CLK_OFF(void)

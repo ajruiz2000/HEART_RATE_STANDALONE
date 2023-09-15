@@ -56,14 +56,7 @@ typedef struct
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define DISAPP_MANUFACTURER_NAME              "STM"
-#define DISAPP_MODEL_NUMBER                   "4502-1.0"
-#define DISAPP_SERIAL_NUMBER                  "1.0"
-#define DISAPP_HARDWARE_REVISION_NUMBER       "1.0"
-#define DISAPP_FIRMWARE_REVISION_NUMBER       "1.0"
-/*#define DISAPP_SOFTWARE_REVISION_NUMBER       "1.0"
-#define DISAPP_OUI                            0x123456
-#define DISAPP_MANUFACTURER_ID                0x9ABCDE*/
+
 /* USER CODE END PD */
 
 /* External variables --------------------------------------------------------*/
@@ -188,27 +181,7 @@ void DIS_APP_Init(void)
   DIS_Init();
 
   /* USER CODE BEGIN Service2_APP_Init */
-  DIS_Data_t dis_information_data;
 
-  dis_information_data.p_Payload = (uint8_t*)DISAPP_MANUFACTURER_NAME;
-  dis_information_data.Length = sizeof(DISAPP_MANUFACTURER_NAME);
-  DIS_UpdateValue(DIS_MANS, &dis_information_data);
-
-  dis_information_data.p_Payload = (uint8_t*)DISAPP_MODEL_NUMBER;
-  dis_information_data.Length = sizeof(DISAPP_MODEL_NUMBER);
-  DIS_UpdateValue(DIS_MNBS, &dis_information_data);
-
-  dis_information_data.p_Payload = (uint8_t*)DISAPP_SERIAL_NUMBER;
-  dis_information_data.Length = sizeof(DISAPP_SERIAL_NUMBER);
-  DIS_UpdateValue(DIS_SNS, &dis_information_data);
-
-  dis_information_data.p_Payload = (uint8_t*)DISAPP_HARDWARE_REVISION_NUMBER;
-  dis_information_data.Length = sizeof(DISAPP_HARDWARE_REVISION_NUMBER);
-  DIS_UpdateValue(DIS_HRS, &dis_information_data);
-
-  dis_information_data.p_Payload = (uint8_t*)DISAPP_FIRMWARE_REVISION_NUMBER;
-  dis_information_data.Length = sizeof(DISAPP_FIRMWARE_REVISION_NUMBER);
-  DIS_UpdateValue(DIS_FRS, &dis_information_data);
   /* USER CODE END Service2_APP_Init */
   return;
 }

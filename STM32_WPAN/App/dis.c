@@ -199,22 +199,7 @@ static SVCCTL_EvtAckStatus_t DIS_EventHandler(void *p_Event)
           break;/* ACI_ATT_EXCHANGE_MTU_RESP_VSEVT_CODE */
         }
         /* USER CODE BEGIN BLECORE_EVT */
-        /* Manage ACI_GATT_INDICATION_VSEVT_CODE */
-        case ACI_GATT_INDICATION_VSEVT_CODE:
-          {
-            tBleStatus status = BLE_STATUS_FAILED;
-            aci_gatt_indication_event_rp0 *pr = (void*)p_blecore_evt->data;
-            status = aci_gatt_confirm_indication(pr->Connection_Handle);
-            if (status != BLE_STATUS_SUCCESS)
-            {
-              APP_DBG_MSG("  Fail   : aci_gatt_confirm_indication command, result: 0x%x \n", status);
-            }
-            else
-            {
-              APP_DBG_MSG("  Success: aci_gatt_confirm_indication command\n");
-            }
-          }
-          break; /* end ACI_GATT_NOTIFICATION_VSEVT_CODE */
+
         /* USER CODE END BLECORE_EVT */
         default:
           /* USER CODE BEGIN EVT_DEFAULT */
